@@ -193,7 +193,7 @@
 
   .portal-layout {
     display: grid;
-    grid-template-columns: 280px 1fr;
+    grid-template-columns: 280px minmax(0, 1fr);
     min-height: calc(100vh - 64px);
   }
 
@@ -249,7 +249,7 @@
   .btn-reset:hover { color: var(--text); border-color: var(--muted); }
 
   /* ── MAIN CONTENT ── */
-  .main-content { padding: 1.5rem 2rem; overflow-x: auto; }
+  .main-content { padding: 1.5rem 2rem; overflow-x: auto; min-width: 0; }
 
   .content-header {
     display: flex;
@@ -288,8 +288,10 @@
 
   /* ── TABLE ── */
   .table-wrap {
-    overflow-x: auto;
+    overflow-x: scroll;
     border: 1px solid var(--border);
+    width: 100%;
+    display: block;
   }
 
   table {
