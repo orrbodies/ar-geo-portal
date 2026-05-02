@@ -6,6 +6,7 @@
 <title>Austral Resources Data Portal</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
     --ore:       #C8932A;
@@ -566,34 +567,13 @@
 
 <script>
 // ═══════════════════════════════════════════
-// CONFIG — replace with your Supabase details
+// CONFIG
 // ═══════════════════════════════════════════
 const SUPABASE_URL = 'https://hfmkqdygeflpkxxzsyer.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_MvXrfS5KYMkfVkT75MAuRA_r70bP7Lf';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const api = (path, opts = {}) => {
-  const token = currentToken || SUPABASE_KEY;
-  return fetch(`${SUPABASE_URL}/rest/v1${path}`, {
-    headers: {
-      'apikey': SUPABASE_KEY,
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      'Prefer': 'return=representation',
-      ...opts.headers
-    },
-    ...opts
-  });
-};
-
-const authApi = (path, body) =>
-  fetch(`${SUPABASE_URL}/auth/v1${path}`, {
-    method: 'POST',
-    headers: {
-      'apikey': SUPABASE_KEY,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(body)
-  });
+// Using Supabase JS client — no manual fetch needed
 
 // ═══════════════════════════════════════════
 // STATE
@@ -618,12 +598,10 @@ async function handleLogin() {
   btn.textContent = 'Signing in…';
 
   try {
-    const res  = await authApi('/token?grant_type=password', { email, password });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error_description || data.msg || 'Login failed');
-
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw new Error(error.message);
     currentUser  = data.user;
-    currentToken = data.access_token;
+    currentToken = data.session.access_token;
     showPortal();
   } catch (e) {
     errEl.textContent = e.message;
@@ -633,6 +611,7 @@ async function handleLogin() {
 }
 
 async function handleLogout() {
+  await supabase.auth.signOut();
   currentUser = currentToken = null;
   currentResults = [];
   document.getElementById('login-email').value    = '';
@@ -666,11 +645,12 @@ async function showPortal() {
 // ═══════════════════════════════════════════
 async function loadProjects() {
   try {
-    const res  = await api('/projects?select=id,client_name,tenement_number&order=client_name', {
-      headers: { 'Authorization': `Bearer ${currentToken}` }
-    });
-    const data = await res.json();
-    const sel  = document.getElementById('filter-project');
+    const { data, error } = await supabase
+      .from('projects')
+      .select('id,client_name,tenement_number')
+      .order('client_name');
+    if (error) throw error;
+    const sel = document.getElementById('filter-project');
     sel.innerHTML = '<option value="">All Projects</option>';
     (data || []).forEach(p => {
       const opt = document.createElement('option');
