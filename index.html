@@ -601,8 +601,11 @@ async function handleLogin() {
   btn.textContent = 'Signing in…';
 
   try {
+    errEl.textContent = 'Connecting to auth...';
     const { data, error } = await sbClient.auth.signInWithPassword({ email, password });
+    errEl.textContent = 'Auth response received...';
     if (error) throw new Error(error.message);
+    errEl.textContent = 'Login OK, loading portal...';
     currentUser  = data.user;
     currentToken = data.session.access_token;
     showPortal();
