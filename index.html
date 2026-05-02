@@ -571,7 +571,10 @@
 // ═══════════════════════════════════════════
 const SUPABASE_URL = 'https://hfmkqdygeflpkxxzsyer.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_MvXrfS5KYMkfVkT75MAuRA_r70bP7Lf';
-const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let sbClient = null;
+document.addEventListener('DOMContentLoaded', () => {
+  sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+});
 
 // Using Supabase JS client — no manual fetch needed
 
