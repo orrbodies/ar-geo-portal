@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Austral Resources Data Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root {
+    --ore:       #C8932A;
+    --ore-light: #E8B84B;
+    --deep:      #0D1117;
+    --surface:   #161B22;
+    --panel:     #1C2330;
+    --border:    #2A3441;
+    --text:      #CDD9E5;
+    --muted:     #768390;
+    --danger:    #E05252;
+    --success:   #4CAF82;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: var(--deep);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+  }
+
+  .logo-mark {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.6rem;
+    letter-spacing: 0.08em;
+    color: var(--ore);
+    line-height: 1;
+  }
+
+  .logo-sub {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  #user-info {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  .btn-logout {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    background: none;
+    border: 1px solid var(--border);
+    padding: 0.3rem 0.8rem;
+    cursor: pointer;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .btn-logout:hover { color: var(--text); border-color: var(--muted); }
+
+  /* ── SCREENS ── */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ── LOGIN ── */
+  #login-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+      radial-gradient(ellipse 80% 60% at 50% -10%, rgba(200,147,42,0.12) 0%, transparent 60%),
+      var(--deep);
+  }
+
+  .login-box {
+    width: 380px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 2.5rem;
+  }
+
+  .login-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    letter-spacing: 0.1em;
+    color: var(--ore);
+    margin-bottom: 0.3rem;
+  }
+
+  .login-subtitle {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .field { margin-bottom: 1.2rem; }
+
+  label {
+    display: block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+  }
+
+  input[type="email"],
+  input[type="password"],
+  input[type="text"],
+  select {
+    width: 100%;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.6rem 0.8rem;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus, select:focus { border-color: var(--ore); }
+  select option { background: var(--panel); }
+
+  .btn-primary {
+    width: 100%;
+    background: var(--ore);
+    color: var(--deep);
+    border: none;
+    padding: 0.75rem;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-top: 0.5rem;
+  }
+  .btn-primary:hover { background: var(--ore-light); }
+  .btn-primary:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+
+  .error-msg {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--danger);
+    margin-top: 0.8rem;
+    min-height: 1rem;
+  }
+
+  /* ── MAIN PORTAL ── */
+  #portal-screen { display: none; }
+  #portal-screen.active { display: block; }
+
+  .portal-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    min-height: calc(100vh - 64px);
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .sidebar-section-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 0.8rem;
+  }
+
+  .filter-group { display: flex; flex-direction: column; gap: 0.8rem; }
+
+  .btn-search {
+    width: 100%;
+    background: var(--ore);
+    color: var(--deep);
+    border: none;
+    padding: 0.65rem;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1rem;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-top: 0.5rem;
+  }
+  .btn-search:hover { background: var(--ore-light); }
+
+  .btn-reset {
+    width: 100%;
+    background: none;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 0.5rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .btn-reset:hover { color: var(--text); border-color: var(--muted); }
+
+  /* ── MAIN CONTENT ── */
+  .main-content { padding: 1.5rem 2rem; overflow-x: auto; }
+
+  .content-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .result-count {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .result-count span {
+    color: var(--ore);
+    font-weight: 500;
+  }
+
+  .btn-export {
+    background: none;
+    color: var(--ore);
+    border: 1px solid var(--ore);
+    padding: 0.5rem 1.2rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+  }
+  .btn-export:hover { background: var(--ore); color: var(--deep); }
+  .btn-export:disabled { border-color: var(--border); color: var(--muted); cursor: not-allowed; }
+
+  /* ── TABLE ── */
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+    min-width: 900px;
+  }
+
+  thead tr {
+    background: var(--panel);
+    border-bottom: 2px solid var(--ore);
+  }
+
+  th {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0.7rem 0.8rem;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+  tbody tr:hover { background: var(--panel); }
+
+  td {
+    padding: 0.6rem 0.8rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+
+  .td-source {
+    font-size: 0.65rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 500;
+  }
+  .src-company    { background: rgba(76,175,130,0.15); color: var(--success); border: 1px solid rgba(76,175,130,0.3); }
+  .src-government { background: rgba(200,147,42,0.15); color: var(--ore); border: 1px solid rgba(200,147,42,0.3); }
+  .src-historical { background: rgba(118,131,144,0.15); color: var(--muted); border: 1px solid rgba(118,131,144,0.3); }
+
+  /* ── STATES ── */
+  .state-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 2rem;
+    color: var(--muted);
+    text-align: center;
+    gap: 0.8rem;
+  }
+
+  .state-icon {
+    font-size: 2.5rem;
+    opacity: 0.4;
+  }
+
+  .state-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.2rem;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+  }
+
+  .state-sub {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    opacity: 0.7;
+  }
+
+  .spinner {
+    width: 32px; height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--ore);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── STATS BAR ── */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin-bottom: 1.5rem;
+  }
+
+  .stat-item {
+    background: var(--surface);
+    padding: 0.8rem 1rem;
+  }
+
+  .stat-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 0.3rem;
+  }
+
+  .stat-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4rem;
+    color: var(--ore);
+    letter-spacing: 0.05em;
+  }
+
+  /* ── NOTIFICATION ── */
+  .notify {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--ore);
+    padding: 0.8rem 1.2rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text);
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+    z-index: 999;
+    max-width: 320px;
+  }
+  .notify.show { opacity: 1; transform: translateY(0); }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--deep); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     LOGIN SCREEN
+════════════════════════════════════════════ -->
+<div id="login-screen" class="screen active">
+  <div class="login-box">
+    <div class="login-title">Austral Resources</div>
+    <div class="login-subtitle">Geochemistry Data Portal</div>
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn-primary" id="login-btn" onclick="handleLogin()">Sign In</button>
+    <div class="error-msg" id="login-error"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     PORTAL SCREEN
+════════════════════════════════════════════ -->
+<div id="portal-screen" class="screen">
+  <header>
+    <div class="logo">
+      <span class="logo-mark">Austral Resources</span>
+      <span class="logo-sub">Data Portal</span>
+    </div>
+    <div class="header-right">
+      <span id="user-info"></span>
+      <button class="btn-logout" onclick="handleLogout()">Sign Out</button>
+    </div>
+  </header>
+
+  <div class="portal-layout">
+    <!-- SIDEBAR FILTERS -->
+    <aside class="sidebar">
+      <div>
+        <div class="sidebar-section-title">Filters</div>
+        <div class="filter-group">
+          <div class="field">
+            <label>Project</label>
+            <select id="filter-project">
+              <option value="">All Projects</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Source Type</label>
+            <select id="filter-source-type">
+              <option value="">All Sources</option>
+              <option value="company">Company</option>
+              <option value="government">Government</option>
+              <option value="historical">Historical</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Sample Type</label>
+            <select id="filter-sample-type">
+              <option value="">All Types</option>
+              <option value="rock chip">Rock Chip</option>
+              <option value="soil">Soil</option>
+              <option value="stream sed">Stream Sediment</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Date From</label>
+            <input type="text" id="filter-date-from" placeholder="YYYY-MM-DD">
+          </div>
+          <div class="field">
+            <label>Date To</label>
+            <input type="text" id="filter-date-to" placeholder="YYYY-MM-DD">
+          </div>
+          <button class="btn-search" onclick="runQuery()">Search</button>
+          <button class="btn-reset" onclick="resetFilters()">Reset Filters</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+      <!-- Stats bar -->
+      <div class="stats-bar" id="stats-bar" style="display:none">
+        <div class="stat-item">
+          <div class="stat-label">Samples</div>
+          <div class="stat-value" id="stat-samples">—</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Projects</div>
+          <div class="stat-value" id="stat-projects">—</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Date Range</div>
+          <div class="stat-value" id="stat-dates" style="font-size:0.85rem;padding-top:0.3rem">—</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Sources</div>
+          <div class="stat-value" id="stat-sources">—</div>
+        </div>
+      </div>
+
+      <!-- Header row -->
+      <div class="content-header">
+        <div class="result-count" id="result-count"></div>
+        <button class="btn-export" id="export-btn" onclick="exportCSV()" disabled>
+          ↓ Export for Micromine
+        </button>
+      </div>
+
+      <!-- Table / state area -->
+      <div id="table-area">
+        <div class="state-box">
+          <div class="state-icon">⛏</div>
+          <div class="state-title">Select filters and search</div>
+          <div class="state-sub">Results will appear here</div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Notification toast -->
+<div class="notify" id="notify"></div>
+
+<script>
+// ═══════════════════════════════════════════
+// CONFIG — replace with your Supabase details
+// ═══════════════════════════════════════════
+const SUPABASE_URL = 'https://hfmkqdygeflpkxxzsyer.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_MvXrfS5KYMkfVkT75MAuRA_r70bP7Lf';
+
+const api = (path, opts = {}) =>
+  fetch(`${SUPABASE_URL}/rest/v1${path}`, {
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation',
+      ...opts.headers
+    },
+    ...opts
+  });
+
+const authApi = (path, body) =>
+  fetch(`${SUPABASE_URL}/auth/v1${path}`, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let currentUser = null;
+let currentToken = null;
+let currentResults = [];
+
+// ═══════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════
+async function handleLogin() {
+  const email    = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl    = document.getElementById('login-error');
+  const btn      = document.getElementById('login-btn');
+
+  errEl.textContent = '';
+  if (!email || !password) { errEl.textContent = 'Please enter email and password.'; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+
+  try {
+    const res  = await authApi('/token?grant_type=password', { email, password });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error_description || data.msg || 'Login failed');
+
+    currentUser  = data.user;
+    currentToken = data.access_token;
+    showPortal();
+  } catch (e) {
+    errEl.textContent = e.message;
+    btn.disabled  = false;
+    btn.textContent = 'Sign In';
+  }
+}
+
+async function handleLogout() {
+  currentUser = currentToken = null;
+  currentResults = [];
+  document.getElementById('login-email').value    = '';
+  document.getElementById('login-password').value = '';
+  document.getElementById('login-error').textContent = '';
+  document.getElementById('login-btn').disabled   = false;
+  document.getElementById('login-btn').textContent = 'Sign In';
+  showScreen('login-screen');
+}
+
+document.getElementById('login-password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') handleLogin();
+});
+
+// ═══════════════════════════════════════════
+// SCREENS
+// ═══════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+async function showPortal() {
+  document.getElementById('user-info').textContent = currentUser.email;
+  showScreen('portal-screen');
+  await loadProjects();
+}
+
+// ═══════════════════════════════════════════
+// LOAD PROJECTS FOR FILTER DROPDOWN
+// ═══════════════════════════════════════════
+async function loadProjects() {
+  try {
+    const res  = await api('/projects?select=id,client_name,tenement_number&order=client_name', {
+      headers: { 'Authorization': `Bearer ${currentToken}` }
+    });
+    const data = await res.json();
+    const sel  = document.getElementById('filter-project');
+    sel.innerHTML = '<option value="">All Projects</option>';
+    (data || []).forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.tenement_number ? `${p.client_name} (${p.tenement_number})` : p.client_name;
+      sel.appendChild(opt);
+    });
+  } catch(e) { /* silently fail - projects table may be empty */ }
+}
+
+// ═══════════════════════════════════════════
+// QUERY
+// ═══════════════════════════════════════════
+async function runQuery() {
+  setTableState('loading');
+  document.getElementById('export-btn').disabled = true;
+  document.getElementById('stats-bar').style.display = 'none';
+
+  const project    = document.getElementById('filter-project').value;
+  const sourceType = document.getElementById('filter-source-type').value;
+  const sampleType = document.getElementById('filter-sample-type').value;
+  const dateFrom   = document.getElementById('filter-date-from').value;
+  const dateTo     = document.getElementById('filter-date-to').value;
+
+  let qs = 'select=sample_id,sample_type,easting,northing,rl,collected_date,data_source,source_type,client_name,tenement_number,au_ppb,ag_ppm,cu_ppm,pb_ppm,zn_ppm,as_ppm,sb_ppm,mo_ppm,bi_ppm,co_ppm,ni_ppm,fe_pct,mn_ppm,ba_ppm,sr_ppm&limit=5000';
+
+  if (project)    qs += `&client_name=eq.${encodeURIComponent('')}`; // filter via project join — simplified for now
+  if (sourceType) qs += `&source_type=eq.${sourceType}`;
+  if (sampleType) qs += `&sample_type=eq.${encodeURIComponent(sampleType)}`;
+  if (dateFrom)   qs += `&collected_date=gte.${dateFrom}`;
+  if (dateTo)     qs += `&collected_date=lte.${dateTo}`;
+
+  try {
+    const res  = await api(`/v_surface_geochemistry_wide?${qs}`, {
+      headers: { 'Authorization': `Bearer ${currentToken}` }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Query failed');
+
+    currentResults = data || [];
+    renderTable(currentResults);
+  } catch(e) {
+    setTableState('error', e.message);
+  }
+}
+
+// ═══════════════════════════════════════════
+// RENDER TABLE
+// ═══════════════════════════════════════════
+const ELEMENT_COLS = [
+  ['au_ppb','Au ppb'],['ag_ppm','Ag ppm'],['cu_ppm','Cu ppm'],
+  ['pb_ppm','Pb ppm'],['zn_ppm','Zn ppm'],['as_ppm','As ppm'],
+  ['sb_ppm','Sb ppm'],['mo_ppm','Mo ppm'],['bi_ppm','Bi ppm'],
+  ['co_ppm','Co ppm'],['ni_ppm','Ni ppm'],['fe_pct','Fe %'],
+  ['mn_ppm','Mn ppm'],['ba_ppm','Ba ppm'],['sr_ppm','Sr ppm']
+];
+
+function renderTable(rows) {
+  const area = document.getElementById('table-area');
+
+  if (!rows.length) {
+    setTableState('empty');
+    document.getElementById('result-count').textContent = '';
+    return;
+  }
+
+  // Stats
+  const projects = new Set(rows.map(r => r.client_name).filter(Boolean));
+  const sources  = new Set(rows.map(r => r.source_type).filter(Boolean));
+  const dates    = rows.map(r => r.collected_date).filter(Boolean).sort();
+  document.getElementById('stat-samples').textContent  = rows.length.toLocaleString();
+  document.getElementById('stat-projects').textContent = projects.size;
+  document.getElementById('stat-sources').textContent  = sources.size;
+  document.getElementById('stat-dates').textContent    = dates.length
+    ? `${dates[0].slice(0,7)} → ${dates[dates.length-1].slice(0,7)}`
+    : '—';
+  document.getElementById('stats-bar').style.display = 'grid';
+
+  document.getElementById('result-count').innerHTML =
+    `<span>${rows.length.toLocaleString()}</span> samples returned`;
+  document.getElementById('export-btn').disabled = false;
+
+  // Detect which element columns have any data
+  const activeCols = ELEMENT_COLS.filter(([k]) => rows.some(r => r[k] != null));
+
+  let html = `<div class="table-wrap"><table>
+    <thead><tr>
+      <th>Sample ID</th>
+      <th>Type</th>
+      <th>Easting</th>
+      <th>Northing</th>
+      <th>RL</th>
+      <th>Date</th>
+      <th>Source</th>
+      <th>Project</th>
+      ${activeCols.map(([,label]) => `<th>${label}</th>`).join('')}
+    </tr></thead>
+    <tbody>`;
+
+  rows.forEach(r => {
+    const srcClass = r.source_type ? `src-${r.source_type}` : '';
+    html += `<tr>
+      <td>${r.sample_id || '—'}</td>
+      <td>${r.sample_type || '—'}</td>
+      <td>${r.easting != null ? r.easting.toFixed(1) : '—'}</td>
+      <td>${r.northing != null ? r.northing.toFixed(1) : '—'}</td>
+      <td>${r.rl != null ? r.rl.toFixed(1) : '—'}</td>
+      <td>${r.collected_date || '—'}</td>
+      <td><span class="td-source ${srcClass}">${r.source_type || '—'}</span></td>
+      <td>${r.client_name || '—'}${r.tenement_number ? ` <span style="color:var(--muted);font-size:0.7rem">${r.tenement_number}</span>` : ''}</td>
+      ${activeCols.map(([k]) => `<td>${r[k] != null ? r[k] : '—'}</td>`).join('')}
+    </tr>`;
+  });
+
+  html += `</tbody></table></div>`;
+  area.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════
+// STATE HELPERS
+// ═══════════════════════════════════════════
+function setTableState(state, msg = '') {
+  const area = document.getElementById('table-area');
+  const icons = { loading: '', empty: '🔍', error: '⚠' };
+  const titles = {
+    loading: 'Querying database…',
+    empty:   'No results found',
+    error:   'Query error'
+  };
+  const subs = {
+    loading: 'Please wait',
+    empty:   'Try adjusting your filters',
+    error:   msg
+  };
+  if (state === 'loading') {
+    area.innerHTML = `<div class="state-box"><div class="spinner"></div>
+      <div class="state-title">${titles.loading}</div>
+      <div class="state-sub">${subs.loading}</div></div>`;
+  } else {
+    area.innerHTML = `<div class="state-box">
+      <div class="state-icon">${icons[state]}</div>
+      <div class="state-title">${titles[state]}</div>
+      <div class="state-sub">${subs[state]}</div></div>`;
+  }
+  document.getElementById('result-count').textContent = '';
+}
+
+// ═══════════════════════════════════════════
+// EXPORT
+// ═══════════════════════════════════════════
+function exportCSV() {
+  if (!currentResults.length) return;
+
+  const csv = Papa.unparse(currentResults);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const date = new Date().toISOString().slice(0,10);
+  a.href     = url;
+  a.download = `AR_geochemistry_${date}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showNotify(`Exported ${currentResults.length.toLocaleString()} samples`);
+}
+
+// ═══════════════════════════════════════════
+// RESET
+// ═══════════════════════════════════════════
+function resetFilters() {
+  ['filter-project','filter-source-type','filter-sample-type'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('filter-date-from').value = '';
+  document.getElementById('filter-date-to').value   = '';
+}
+
+// ═══════════════════════════════════════════
+// TOAST NOTIFICATION
+// ═══════════════════════════════════════════
+function showNotify(msg) {
+  const el = document.getElementById('notify');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
