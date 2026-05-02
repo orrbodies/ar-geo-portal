@@ -643,7 +643,7 @@ function showScreen(id) {
 async function showPortal() {
   document.getElementById('user-info').textContent = currentUser.email;
   showScreen('portal-screen');
-  await loadProjects();
+  loadProjects(); // non-blocking - portal loads immediately
 }
 
 // ═══════════════════════════════════════════
