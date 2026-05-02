@@ -571,17 +571,19 @@
 const SUPABASE_URL = 'https://hfmkqdygeflpkxxzsyer.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_MvXrfS5KYMkfVkT75MAuRA_r70bP7Lf';
 
-const api = (path, opts = {}) =>
-  fetch(`${SUPABASE_URL}/rest/v1${path}`, {
+const api = (path, opts = {}) => {
+  const token = currentToken || SUPABASE_KEY;
+  return fetch(`${SUPABASE_URL}/rest/v1${path}`, {
     headers: {
       'apikey': SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
       'Prefer': 'return=representation',
       ...opts.headers
     },
     ...opts
   });
+};
 
 const authApi = (path, body) =>
   fetch(`${SUPABASE_URL}/auth/v1${path}`, {
@@ -695,7 +697,7 @@ async function runQuery() {
 
   let qs = 'select=sample_id,sample_type,easting,northing,rl,collected_date,data_source,source_type,client_name,tenement_number,au_ppb,ag_ppm,cu_ppm,pb_ppm,zn_ppm,as_ppm,sb_ppm,mo_ppm,bi_ppm,co_ppm,ni_ppm,fe_pct,mn_ppm,ba_ppm,sr_ppm&limit=5000';
 
-  if (project)    qs += `&client_name=eq.${encodeURIComponent('')}`; // filter via project join — simplified for now
+  // project filter: handled via source_type and other fields for now
   if (sourceType) qs += `&source_type=eq.${sourceType}`;
   if (sampleType) qs += `&sample_type=eq.${encodeURIComponent(sampleType)}`;
   if (dateFrom)   qs += `&collected_date=gte.${dateFrom}`;
