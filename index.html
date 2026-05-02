@@ -571,7 +571,7 @@
 // ═══════════════════════════════════════════
 const SUPABASE_URL = 'https://hfmkqdygeflpkxxzsyer.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_MvXrfS5KYMkfVkT75MAuRA_r70bP7Lf';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Using Supabase JS client — no manual fetch needed
 
@@ -598,7 +598,7 @@ async function handleLogin() {
   btn.textContent = 'Signing in…';
 
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await sbClient.auth.signInWithPassword({ email, password });
     if (error) throw new Error(error.message);
     currentUser  = data.user;
     currentToken = data.session.access_token;
@@ -611,7 +611,7 @@ async function handleLogin() {
 }
 
 async function handleLogout() {
-  await supabase.auth.signOut();
+  await sbClient.auth.signOut();
   currentUser = currentToken = null;
   currentResults = [];
   document.getElementById('login-email').value    = '';
@@ -645,7 +645,7 @@ async function showPortal() {
 // ═══════════════════════════════════════════
 async function loadProjects() {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await sbClient
       .from('projects')
       .select('id,client_name,tenement_number')
       .order('client_name');
@@ -669,26 +669,24 @@ async function runQuery() {
   document.getElementById('export-btn').disabled = true;
   document.getElementById('stats-bar').style.display = 'none';
 
-  const project    = document.getElementById('filter-project').value;
   const sourceType = document.getElementById('filter-source-type').value;
   const sampleType = document.getElementById('filter-sample-type').value;
   const dateFrom   = document.getElementById('filter-date-from').value;
   const dateTo     = document.getElementById('filter-date-to').value;
 
-  let qs = 'select=sample_id,sample_type,easting,northing,rl,collected_date,data_source,source_type,client_name,tenement_number,au_ppb,ag_ppm,cu_ppm,pb_ppm,zn_ppm,as_ppm,sb_ppm,mo_ppm,bi_ppm,co_ppm,ni_ppm,fe_pct,mn_ppm,ba_ppm,sr_ppm&limit=5000';
-
-  // project filter: handled via source_type and other fields for now
-  if (sourceType) qs += `&source_type=eq.${sourceType}`;
-  if (sampleType) qs += `&sample_type=eq.${encodeURIComponent(sampleType)}`;
-  if (dateFrom)   qs += `&collected_date=gte.${dateFrom}`;
-  if (dateTo)     qs += `&collected_date=lte.${dateTo}`;
-
   try {
-    const res  = await api(`/v_surface_geochemistry_wide?${qs}`, {
-      headers: { 'Authorization': `Bearer ${currentToken}` }
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Query failed');
+    let query = sbClient
+      .from('v_surface_geochemistry_wide')
+      .select('sample_id,sample_type,easting,northing,rl,collected_date,data_source,source_type,client_name,tenement_number,au_ppb,ag_ppm,cu_ppm,pb_ppm,zn_ppm,as_ppm,sb_ppm,mo_ppm,bi_ppm,co_ppm,ni_ppm,fe_pct,mn_ppm,ba_ppm,sr_ppm')
+      .limit(5000);
+
+    if (sourceType) query = query.eq('source_type', sourceType);
+    if (sampleType) query = query.eq('sample_type', sampleType);
+    if (dateFrom)   query = query.gte('collected_date', dateFrom);
+    if (dateTo)     query = query.lte('collected_date', dateTo);
+
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
 
     currentResults = data || [];
     renderTable(currentResults);
