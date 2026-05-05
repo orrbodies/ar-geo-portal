@@ -443,6 +443,35 @@
   .table-wrap::-webkit-scrollbar { height: 10px; }
   .table-wrap::-webkit-scrollbar-track { background: var(--panel); }
   .table-wrap::-webkit-scrollbar-thumb { background: var(--ore); border-radius: 3px; }
+
+  /* ── TABS ── */
+  .tab-bar {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 1.5rem;
+  }
+
+  .tab-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 0.7rem 1.5rem;
+    cursor: pointer;
+    margin-bottom: -2px;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--ore); border-bottom-color: var(--ore); }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
 </style>
 </head>
 <body>
@@ -485,7 +514,8 @@
   <div class="portal-layout">
     <!-- SIDEBAR FILTERS -->
     <aside class="sidebar">
-      <div>
+      <!-- SURFACE FILTERS -->
+      <div id="surface-filters">
         <div class="sidebar-section-title">Filters</div>
         <div class="filter-group">
           <div class="field">
@@ -528,46 +558,124 @@
           <button class="btn-reset" onclick="resetFilters()">Reset Filters</button>
         </div>
       </div>
+
+      <!-- DRILL FILTERS -->
+      <div id="drill-filters" style="display:none">
+        <div class="sidebar-section-title">Filters</div>
+        <div class="filter-group">
+          <div class="field">
+            <label>Project</label>
+            <select id="drill-filter-project">
+              <option value="">All Projects</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Hole Type</label>
+            <select id="drill-filter-hole-type">
+              <option value="">All Types</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Lease ID</label>
+            <input type="text" id="drill-filter-lease" placeholder="e.g. ML1234">
+          </div>
+          <div class="field">
+            <label>Prospect</label>
+            <input type="text" id="drill-filter-prospect" placeholder="e.g. Mammoth">
+          </div>
+          <div class="field">
+            <label>Date From</label>
+            <input type="text" id="drill-filter-date-from" placeholder="YYYY-MM-DD">
+          </div>
+          <div class="field">
+            <label>Date To</label>
+            <input type="text" id="drill-filter-date-to" placeholder="YYYY-MM-DD">
+          </div>
+          <button class="btn-search" onclick="runDrillQuery()">Search</button>
+          <button class="btn-reset" onclick="resetDrillFilters()">Reset Filters</button>
+        </div>
+      </div>
     </aside>
 
     <!-- MAIN CONTENT -->
     <main class="main-content">
-      <!-- Stats bar -->
-      <div class="stats-bar" id="stats-bar" style="display:none">
-        <div class="stat-item">
-          <div class="stat-label">Samples</div>
-          <div class="stat-value" id="stat-samples">—</div>
+
+      <!-- TAB BAR -->
+      <div class="tab-bar">
+        <button class="tab-btn active" id="tab-surface" onclick="switchTab('surface')">Surface Samples</button>
+        <button class="tab-btn" id="tab-drill" onclick="switchTab('drill')">Drilling</button>
+      </div>
+
+      <!-- ── SURFACE TAB ── -->
+      <div class="tab-panel active" id="panel-surface">
+        <div class="stats-bar" id="stats-bar" style="display:none">
+          <div class="stat-item">
+            <div class="stat-label">Samples</div>
+            <div class="stat-value" id="stat-samples">—</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Projects</div>
+            <div class="stat-value" id="stat-projects">—</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Date Range</div>
+            <div class="stat-value" id="stat-dates" style="font-size:0.85rem;padding-top:0.3rem">—</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Sources</div>
+            <div class="stat-value" id="stat-sources">—</div>
+          </div>
         </div>
-        <div class="stat-item">
-          <div class="stat-label">Projects</div>
-          <div class="stat-value" id="stat-projects">—</div>
+        <div class="content-header">
+          <div class="result-count" id="result-count"></div>
+          <button class="btn-export" id="export-btn" onclick="exportCSV()" disabled>
+            ↓ Export for Micromine
+          </button>
         </div>
-        <div class="stat-item">
-          <div class="stat-label">Date Range</div>
-          <div class="stat-value" id="stat-dates" style="font-size:0.85rem;padding-top:0.3rem">—</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">Sources</div>
-          <div class="stat-value" id="stat-sources">—</div>
+        <div id="table-area">
+          <div class="state-box">
+            <div class="state-icon">⛏</div>
+            <div class="state-title">Select filters and search</div>
+            <div class="state-sub">Results will appear here</div>
+          </div>
         </div>
       </div>
 
-      <!-- Header row -->
-      <div class="content-header">
-        <div class="result-count" id="result-count"></div>
-        <button class="btn-export" id="export-btn" onclick="exportCSV()" disabled>
-          ↓ Export for Micromine
-        </button>
-      </div>
-
-      <!-- Table / state area -->
-      <div id="table-area">
-        <div class="state-box">
-          <div class="state-icon">⛏</div>
-          <div class="state-title">Select filters and search</div>
-          <div class="state-sub">Results will appear here</div>
+      <!-- ── DRILL TAB ── -->
+      <div class="tab-panel" id="panel-drill">
+        <div class="stats-bar" id="drill-stats-bar" style="display:none">
+          <div class="stat-item">
+            <div class="stat-label">Holes</div>
+            <div class="stat-value" id="drill-stat-holes">—</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Projects</div>
+            <div class="stat-value" id="drill-stat-projects">—</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Hole Types</div>
+            <div class="stat-value" id="drill-stat-types">—</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Max Depth</div>
+            <div class="stat-value" id="drill-stat-depth" style="font-size:0.85rem;padding-top:0.3rem">—</div>
+          </div>
+        </div>
+        <div class="content-header">
+          <div class="result-count" id="drill-result-count"></div>
+          <button class="btn-export" id="drill-export-btn" onclick="exportDrillCSV()" disabled>
+            ↓ Export for Micromine
+          </button>
+        </div>
+        <div id="drill-table-area">
+          <div class="state-box">
+            <div class="state-icon">⛏</div>
+            <div class="state-title">Select filters and search</div>
+            <div class="state-sub">Results will appear here</div>
+          </div>
         </div>
       </div>
+
     </main>
   </div>
 </div>
@@ -658,7 +766,8 @@ function showScreen(id) {
 async function showPortal() {
   document.getElementById('user-info').textContent = currentUser.email;
   showScreen('portal-screen');
-  loadProjects(); // non-blocking - portal loads immediately
+  loadProjects();      // non-blocking
+  loadDrillFilters(); // non-blocking
 }
 
 // ═══════════════════════════════════════════
@@ -858,6 +967,276 @@ function resetFilters() {
   });
   document.getElementById('filter-date-from').value = '';
   document.getElementById('filter-date-to').value   = '';
+}
+
+
+// ═══════════════════════════════════════════
+// TAB SWITCHING
+// ═══════════════════════════════════════════
+let currentTab = 'surface';
+let currentDrillResults = [];
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.getElementById('panel-' + tab).classList.add('active');
+  document.getElementById('surface-filters').style.display = tab === 'surface' ? '' : 'none';
+  document.getElementById('drill-filters').style.display   = tab === 'drill'   ? '' : 'none';
+}
+
+// ═══════════════════════════════════════════
+// LOAD DRILL FILTER OPTIONS
+// ═══════════════════════════════════════════
+async function loadDrillFilters() {
+  try {
+    // Populate project dropdown (reuse same projects)
+    const { data: projects } = await sbClient.from('projects').select('id,client_name').order('client_name');
+    const projSel = document.getElementById('drill-filter-project');
+    projSel.innerHTML = '<option value="">All Projects</option>';
+    (projects || []).forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.client_name;
+      opt.textContent = p.client_name;
+      projSel.appendChild(opt);
+    });
+
+    // Populate hole type dropdown
+    const { data: types } = await sbClient.from('drill_collars').select('hole_type').not('hole_type', 'is', null);
+    const uniqueTypes = [...new Set((types || []).map(r => r.hole_type).filter(Boolean))].sort();
+    const typeSel = document.getElementById('drill-filter-hole-type');
+    typeSel.innerHTML = '<option value="">All Types</option>';
+    uniqueTypes.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t;
+      opt.textContent = t;
+      typeSel.appendChild(opt);
+    });
+  } catch(e) { console.error('loadDrillFilters:', e); }
+}
+
+// ═══════════════════════════════════════════
+// DRILL QUERY
+// ═══════════════════════════════════════════
+async function runDrillQuery() {
+  setDrillTableState('loading');
+  document.getElementById('drill-export-btn').disabled = true;
+  document.getElementById('drill-stats-bar').style.display = 'none';
+
+  const projectVal = document.getElementById('drill-filter-project').value;
+  const holeType   = document.getElementById('drill-filter-hole-type').value;
+  const leaseVal   = document.getElementById('drill-filter-lease').value.trim();
+  const prospectVal= document.getElementById('drill-filter-prospect').value.trim();
+  const dateFrom   = document.getElementById('drill-filter-date-from').value.trim();
+  const dateTo     = document.getElementById('drill-filter-date-to').value.trim();
+
+  try {
+    const LIMIT = 5000;
+
+    let query = sbClient
+      .from('drill_collars')
+      .select('hole_id,hole_type,lease_id,prospect,date_started,date_completed,max_depth,nat_east,nat_north,collar_azimuth,collar_dip,client_name:projects(client_name)')
+      .limit(LIMIT);
+
+    let countQuery = sbClient
+      .from('drill_collars')
+      .select('hole_id', { count: 'exact', head: true });
+
+    if (projectVal) {
+      // Look up project UUID
+      const { data: proj } = await sbClient.from('projects').select('id').eq('client_name', projectVal).single();
+      if (proj) {
+        query = query.eq('project_id', proj.id);
+        countQuery = countQuery.eq('project_id', proj.id);
+      }
+    }
+    if (holeType)    { query = query.eq('hole_type', holeType);             countQuery = countQuery.eq('hole_type', holeType); }
+    if (leaseVal)    { query = query.ilike('lease_id', `%${leaseVal}%`);    countQuery = countQuery.ilike('lease_id', `%${leaseVal}%`); }
+    if (prospectVal) { query = query.ilike('prospect', `%${prospectVal}%`); countQuery = countQuery.ilike('prospect', `%${prospectVal}%`); }
+    if (dateFrom) {
+      query = query.or(`date_started.gte.${dateFrom},and(date_started.is.null,date_completed.gte.${dateFrom})`);
+    }
+    if (dateTo) {
+      query = query.or(`date_started.lte.${dateTo},and(date_started.is.null,date_completed.lte.${dateTo})`);
+    }
+
+    const [{ data, error }, { count, error: countError }] = await Promise.all([query, countQuery]);
+    if (error) throw new Error(error.message);
+
+    currentDrillResults = data || [];
+    renderDrillTable(currentDrillResults, countError ? null : count);
+  } catch(e) {
+    setDrillTableState('error', e.message);
+  }
+}
+
+// ═══════════════════════════════════════════
+// RENDER DRILL TABLE
+// ═══════════════════════════════════════════
+function renderDrillTable(rows, totalCount) {
+  const area = document.getElementById('drill-table-area');
+
+  if (!rows.length) {
+    setDrillTableState('empty');
+    document.getElementById('drill-result-count').textContent = '';
+    return;
+  }
+
+  // Stats
+  const projects  = new Set(rows.map(r => r.client_name?.client_name || r.client_name).filter(Boolean));
+  const holeTypes = new Set(rows.map(r => r.hole_type).filter(Boolean));
+  const depths    = rows.map(r => r.max_depth).filter(v => v != null);
+  const maxDepth  = depths.length ? Math.max(...depths) : null;
+
+  document.getElementById('drill-stat-holes').textContent    = rows.length.toLocaleString();
+  document.getElementById('drill-stat-projects').textContent = projects.size;
+  document.getElementById('drill-stat-types').textContent    = holeTypes.size;
+  document.getElementById('drill-stat-depth').textContent    = maxDepth != null ? maxDepth.toFixed(0) + 'm' : '—';
+  document.getElementById('drill-stats-bar').style.display = 'grid';
+
+  const total = totalCount || rows.length;
+  const limitHit = rows.length < total;
+  document.getElementById('drill-result-count').innerHTML = limitHit
+    ? `<span>${rows.length.toLocaleString()}</span> of <span>${total.toLocaleString()}</span> holes shown — refine your filters to narrow results`
+    : `<span>${rows.length.toLocaleString()}</span> holes returned`;
+  document.getElementById('drill-export-btn').disabled = false;
+
+  let html = `<div class="table-wrap"><table>
+    <thead><tr>
+      <th>Hole ID</th>
+      <th>Type</th>
+      <th>Lease ID</th>
+      <th>Prospect</th>
+      <th>Date</th>
+      <th>Max Depth (m)</th>
+      <th>NAT East</th>
+      <th>NAT North</th>
+      <th>Azimuth</th>
+      <th>Dip</th>
+    </tr></thead>
+    <tbody>`;
+
+  rows.forEach(r => {
+    const date = r.date_started || r.date_completed || '—';
+    html += `<tr>
+      <td>${r.hole_id || '—'}</td>
+      <td>${r.hole_type || '—'}</td>
+      <td>${r.lease_id || '—'}</td>
+      <td>${r.prospect || '—'}</td>
+      <td>${date}</td>
+      <td>${r.max_depth != null ? r.max_depth.toFixed(0) : '—'}</td>
+      <td>${r.nat_east != null ? r.nat_east.toFixed(1) : '—'}</td>
+      <td>${r.nat_north != null ? r.nat_north.toFixed(1) : '—'}</td>
+      <td>${r.collar_azimuth != null ? r.collar_azimuth.toFixed(1) : '—'}</td>
+      <td>${r.collar_dip != null ? r.collar_dip.toFixed(1) : '—'}</td>
+    </tr>`;
+  });
+
+  html += `</tbody></table></div>`;
+  area.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════
+// DRILL TABLE STATE
+// ═══════════════════════════════════════════
+function setDrillTableState(state, msg = '') {
+  const area = document.getElementById('drill-table-area');
+  const icons  = { loading: '', empty: '🔍', error: '⚠' };
+  const titles = { loading: 'Querying database…', empty: 'No results found', error: 'Query error' };
+  const subs   = { loading: 'Please wait', empty: 'Try adjusting your filters', error: msg };
+  if (state === 'loading') {
+    area.innerHTML = `<div class="state-box"><div class="spinner"></div>
+      <div class="state-title">${titles.loading}</div>
+      <div class="state-sub">${subs.loading}</div></div>`;
+  } else {
+    area.innerHTML = `<div class="state-box">
+      <div class="state-icon">${icons[state]}</div>
+      <div class="state-title">${titles[state]}</div>
+      <div class="state-sub">${subs[state]}</div></div>`;
+  }
+  document.getElementById('drill-result-count').textContent = '';
+}
+
+// ═══════════════════════════════════════════
+// DRILL EXPORT (Micromine - multiple CSVs zipped)
+// ═══════════════════════════════════════════
+async function exportDrillCSV() {
+  if (!currentDrillResults.length) return;
+  showNotify('Fetching drill data for export…');
+  document.getElementById('drill-export-btn').disabled = true;
+
+  try {
+    const holeIds = currentDrillResults.map(r => r.hole_id);
+
+    // Fetch all related tables for the matching holes
+    const [
+      { data: collars },
+      { data: surveys },
+      { data: assays },
+      { data: lithology },
+      { data: alteration },
+      { data: magsus },
+      { data: minerals },
+      { data: veins }
+    ] = await Promise.all([
+      sbClient.from('drill_collars').select('*').in('hole_id', holeIds),
+      sbClient.from('drill_surveys').select('*').in('hole_id', holeIds),
+      sbClient.from('drill_assays').select('*').in('hole_id', holeIds).limit(100000),
+      sbClient.from('drill_lithology').select('*').in('hole_id', holeIds).limit(100000),
+      sbClient.from('drill_alteration').select('*').in('hole_id', holeIds).limit(100000),
+      sbClient.from('drill_magsus').select('*').in('hole_id', holeIds),
+      sbClient.from('drill_minerals').select('*').in('hole_id', holeIds).limit(50000),
+      sbClient.from('drill_veins').select('*').in('hole_id', holeIds).limit(50000),
+    ]);
+
+    const date = new Date().toISOString().slice(0,10);
+
+    // Download each as separate CSV
+    const exports = [
+      { name: `AR_Collar_${date}.csv`,     data: collars },
+      { name: `AR_Survey_${date}.csv`,     data: surveys },
+      { name: `AR_Assays_${date}.csv`,     data: assays },
+      { name: `AR_Lithology_${date}.csv`,  data: lithology },
+      { name: `AR_Alteration_${date}.csv`, data: alteration },
+      { name: `AR_MagSus_${date}.csv`,     data: magsus },
+      { name: `AR_Minerals_${date}.csv`,   data: minerals },
+      { name: `AR_Veins_${date}.csv`,      data: veins },
+    ];
+
+    let downloaded = 0;
+    for (const exp of exports) {
+      if (exp.data && exp.data.length > 0) {
+        const csv  = Papa.unparse(exp.data);
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = exp.name;
+        a.click();
+        URL.revokeObjectURL(url);
+        downloaded++;
+        await new Promise(r => setTimeout(r, 300)); // small delay between downloads
+      }
+    }
+
+    showNotify(`Exported ${downloaded} CSV files for ${holeIds.length} holes`);
+  } catch(e) {
+    showNotify('Export error: ' + e.message);
+  }
+  document.getElementById('drill-export-btn').disabled = false;
+}
+
+// ═══════════════════════════════════════════
+// DRILL RESET
+// ═══════════════════════════════════════════
+function resetDrillFilters() {
+  ['drill-filter-project','drill-filter-hole-type'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  ['drill-filter-lease','drill-filter-prospect','drill-filter-date-from','drill-filter-date-to'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
 }
 
 // ═══════════════════════════════════════════
