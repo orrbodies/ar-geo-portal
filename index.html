@@ -822,15 +822,23 @@ async function runQuery() {
       .limit(LIMIT);
 
     // Count query — same filters on same view, single column only
-    let countQuery = sbClient
-      .from('v_surface_geochemistry_wide')
-      .select('sample_id', { count: 'exact', head: true });
+    // Apply filters to main query
+    if (projectVal) { query = query.eq('client_name', projectVal); }
+    if (sourceType) { query = query.eq('source_type', sourceType); }
+    if (sampleType) { query = query.eq('sample_type', sampleType); }
+    if (dateFrom)   { query = query.gte('collected_date', dateFrom); }
+    if (dateTo)     { query = query.lte('collected_date', dateTo); }
 
-    if (projectVal) { query = query.eq('client_name', projectVal); countQuery = countQuery.eq('client_name', projectVal); }
-    if (sourceType) { query = query.eq('source_type', sourceType); countQuery = countQuery.eq('source_type', sourceType); }
-    if (sampleType) { query = query.eq('sample_type', sampleType); countQuery = countQuery.eq('sample_type', sampleType); }
-    if (dateFrom)   { query = query.gte('collected_date', dateFrom); countQuery = countQuery.gte('collected_date', dateFrom); }
-    if (dateTo)     { query = query.lte('collected_date', dateTo);   countQuery = countQuery.lte('collected_date', dateTo); }
+    // Count query against samples table (simpler, avoids view complexity)
+    let countQuery = sbClient.from('samples').select('*', { count: 'exact', head: true });
+    if (sampleType) { countQuery = countQuery.eq('sample_type', sampleType); }
+    if (dateFrom)   { countQuery = countQuery.gte('collected_date', dateFrom); }
+    if (dateTo)     { countQuery = countQuery.lte('collected_date', dateTo); }
+    if (projectVal) {
+      const { data: proj } = await sbClient.from('projects').select('id').eq('client_name', projectVal).single();
+      if (proj) countQuery = countQuery.eq('project_id', proj.id);
+    }
+    // source_type is on data_sources not samples — skip for count, main query handles it
 
     const [{ data, error }, { count, error: countError }] = await Promise.all([query, countQuery]);
     if (error) throw new Error(error.message);
