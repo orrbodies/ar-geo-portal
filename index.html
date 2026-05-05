@@ -991,19 +991,24 @@ function switchTab(tab) {
 // ═══════════════════════════════════════════
 async function loadDrillFilters() {
   try {
-    // Populate project dropdown (reuse same projects)
+    // Populate project dropdown
     const { data: projects } = await sbClient.from('projects').select('id,client_name').order('client_name');
     const projSel = document.getElementById('drill-filter-project');
     projSel.innerHTML = '<option value="">All Projects</option>';
     (projects || []).forEach(p => {
       const opt = document.createElement('option');
-      opt.value = p.client_name;
+      opt.value = p.id;  // store UUID
       opt.textContent = p.client_name;
       projSel.appendChild(opt);
     });
 
-    // Populate hole type dropdown
-    const { data: types } = await sbClient.from('drill_collars').select('hole_type').not('hole_type', 'is', null);
+    // Populate hole type dropdown - limit to avoid timeout
+    const { data: types, error: typeErr } = await sbClient
+      .from('drill_collars')
+      .select('hole_type')
+      .not('hole_type', 'is', null)
+      .limit(50000);
+    if (typeErr) { console.error('hole type query:', typeErr); }
     const uniqueTypes = [...new Set((types || []).map(r => r.hole_type).filter(Boolean))].sort();
     const typeSel = document.getElementById('drill-filter-hole-type');
     typeSel.innerHTML = '<option value="">All Types</option>';
@@ -1036,7 +1041,7 @@ async function runDrillQuery() {
 
     let query = sbClient
       .from('drill_collars')
-      .select('hole_id,hole_type,lease_id,prospect,date_started,date_completed,max_depth,nat_east,nat_north,collar_azimuth,collar_dip,client_name:projects(client_name)')
+      .select('hole_id,hole_type,lease_id,prospect,date_started,date_completed,max_depth,nat_east,nat_north,collar_azimuth,collar_dip,project_id')
       .limit(LIMIT);
 
     let countQuery = sbClient
@@ -1044,12 +1049,8 @@ async function runDrillQuery() {
       .select('hole_id', { count: 'exact', head: true });
 
     if (projectVal) {
-      // Look up project UUID
-      const { data: proj } = await sbClient.from('projects').select('id').eq('client_name', projectVal).single();
-      if (proj) {
-        query = query.eq('project_id', proj.id);
-        countQuery = countQuery.eq('project_id', proj.id);
-      }
+      query = query.eq('project_id', projectVal);
+      countQuery = countQuery.eq('project_id', projectVal);
     }
     if (holeType)    { query = query.eq('hole_type', holeType);             countQuery = countQuery.eq('hole_type', holeType); }
     if (leaseVal)    { query = query.ilike('lease_id', `%${leaseVal}%`);    countQuery = countQuery.ilike('lease_id', `%${leaseVal}%`); }
@@ -1084,7 +1085,7 @@ function renderDrillTable(rows, totalCount) {
   }
 
   // Stats
-  const projects  = new Set(rows.map(r => r.client_name?.client_name || r.client_name).filter(Boolean));
+  const projects  = new Set(rows.map(r => r.project_id).filter(Boolean));
   const holeTypes = new Set(rows.map(r => r.hole_type).filter(Boolean));
   const depths    = rows.map(r => r.max_depth).filter(v => v != null);
   const maxDepth  = depths.length ? Math.max(...depths) : null;
