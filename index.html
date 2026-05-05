@@ -573,6 +573,13 @@
             <label>Hole Type</label>
             <select id="drill-filter-hole-type">
               <option value="">All Types</option>
+              <option value="RAB">RAB</option>
+              <option value="RC">RC</option>
+              <option value="DD">DD</option>
+              <option value="NR">NR</option>
+              <option value="RCP">RCP</option>
+              <option value="RCD">RCD</option>
+              <option value="AC">AC</option>
             </select>
           </div>
           <div class="field">
@@ -1002,22 +1009,7 @@ async function loadDrillFilters() {
       projSel.appendChild(opt);
     });
 
-    // Populate hole type dropdown - limit to avoid timeout
-    const { data: types, error: typeErr } = await sbClient
-      .from('drill_collars')
-      .select('hole_type')
-      .not('hole_type', 'is', null)
-      .limit(50000);
-    if (typeErr) { console.error('hole type query:', typeErr); }
-    const uniqueTypes = [...new Set((types || []).map(r => r.hole_type).filter(Boolean))].sort();
-    const typeSel = document.getElementById('drill-filter-hole-type');
-    typeSel.innerHTML = '<option value="">All Types</option>';
-    uniqueTypes.forEach(t => {
-      const opt = document.createElement('option');
-      opt.value = t;
-      opt.textContent = t;
-      typeSel.appendChild(opt);
-    });
+    // Hole types are hardcoded in the dropdown
   } catch(e) { console.error('loadDrillFilters:', e); }
 }
 
@@ -1052,7 +1044,16 @@ async function runDrillQuery() {
       query = query.eq('project_id', projectVal);
       countQuery = countQuery.eq('project_id', projectVal);
     }
-    if (holeType)    { query = query.eq('hole_type', holeType);             countQuery = countQuery.eq('hole_type', holeType); }
+    if (holeType)    { 
+      // Handle lowercase 'rc' variant in database
+      if (holeType === 'RC') {
+        query = query.in('hole_type', ['RC', 'rc']);
+        countQuery = countQuery.in('hole_type', ['RC', 'rc']);
+      } else {
+        query = query.eq('hole_type', holeType);
+        countQuery = countQuery.eq('hole_type', holeType);
+      }
+    }
     if (leaseVal)    { query = query.ilike('lease_id', `%${leaseVal}%`);    countQuery = countQuery.ilike('lease_id', `%${leaseVal}%`); }
     if (prospectVal) { query = query.ilike('prospect', `%${prospectVal}%`); countQuery = countQuery.ilike('prospect', `%${prospectVal}%`); }
     if (dateFrom) {
