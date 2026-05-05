@@ -1071,11 +1071,27 @@ async function runDrillQuery() {
       query = query.or(`date_started.lte.${dateTo},and(date_started.is.null,date_completed.lte.${dateTo})`);
     }
 
-    const [{ data, error }, { count, error: countError }] = await Promise.all([query, countQuery]);
+    // Stats query — full dataset, not limited
+    let statsQuery = sbClient
+      .from('drill_collars')
+      .select('hole_type,max_depth,project_id');
+
+    if (projectVal) { statsQuery = statsQuery.eq('project_id', projectVal); }
+    if (holeType) {
+      if (holeType === 'RC') {
+        statsQuery = statsQuery.in('hole_type', ['RC', 'rc']);
+      } else {
+        statsQuery = statsQuery.eq('hole_type', holeType);
+      }
+    }
+    if (leaseVal)    { statsQuery = statsQuery.ilike('lease_id', `%${leaseVal}%`); }
+    if (prospectVal) { statsQuery = statsQuery.ilike('prospect', `%${prospectVal}%`); }
+
+    const [{ data, error }, { count, error: countError }, { data: statsData }] = await Promise.all([query, countQuery, statsQuery]);
     if (error) throw new Error(error.message);
 
     currentDrillResults = data || [];
-    renderDrillTable(currentDrillResults, countError ? null : count);
+    renderDrillTable(currentDrillResults, countError ? null : count, statsData || []);
   } catch(e) {
     setDrillTableState('error', e.message);
   }
@@ -1084,7 +1100,7 @@ async function runDrillQuery() {
 // ═══════════════════════════════════════════
 // RENDER DRILL TABLE
 // ═══════════════════════════════════════════
-function renderDrillTable(rows, totalCount) {
+function renderDrillTable(rows, totalCount, statsData) {
   const area = document.getElementById('drill-table-area');
 
   if (!rows.length) {
@@ -1093,13 +1109,15 @@ function renderDrillTable(rows, totalCount) {
     return;
   }
 
-  // Stats
-  const projects  = new Set(rows.map(r => r.project_id).filter(Boolean));
-  const holeTypes = new Set(rows.map(r => r.hole_type).filter(Boolean));
-  const depths    = rows.map(r => r.max_depth).filter(v => v != null);
+  // Stats from full dataset (not just display subset)
+  const allRows   = statsData && statsData.length ? statsData : rows;
+  const projects  = new Set(allRows.map(r => r.project_id).filter(Boolean));
+  const holeTypes = new Set(allRows.map(r => r.hole_type).filter(v => v && v.toLowerCase() !== 'null'));
+  const depths    = allRows.map(r => r.max_depth).filter(v => v != null);
   const maxDepth  = depths.length ? Math.max(...depths) : null;
+  const total     = totalCount || allRows.length;
 
-  document.getElementById('drill-stat-holes').textContent    = rows.length.toLocaleString();
+  document.getElementById('drill-stat-holes').textContent    = total.toLocaleString();
   document.getElementById('drill-stat-projects').textContent = projects.size;
   document.getElementById('drill-stat-types').textContent    = holeTypes.size;
   document.getElementById('drill-stat-depth').textContent    = maxDepth != null ? maxDepth.toFixed(0) + 'm' : '—';
