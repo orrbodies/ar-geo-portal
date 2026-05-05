@@ -675,7 +675,7 @@ async function loadProjects() {
     sel.innerHTML = '<option value="">All Projects</option>';
     (data || []).forEach(p => {
       const opt = document.createElement('option');
-      opt.value = p.id;
+      opt.value = p.client_name;
       opt.textContent = p.tenement_number ? `${p.client_name} (${p.tenement_number})` : p.client_name;
       sel.appendChild(opt);
     });
