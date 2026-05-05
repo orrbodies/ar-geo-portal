@@ -1123,7 +1123,6 @@ function renderDrillTable(rows, totalCount, statsData) {
   document.getElementById('drill-stat-depth').textContent    = maxDepth != null ? maxDepth.toFixed(0) + 'm' : '—';
   document.getElementById('drill-stats-bar').style.display = 'grid';
 
-  const total = totalCount || rows.length;
   const limitHit = rows.length < total;
   document.getElementById('drill-result-count').innerHTML = limitHit
     ? `<span>${rows.length.toLocaleString()}</span> of <span>${total.toLocaleString()}</span> holes shown — refine your filters to narrow results`
