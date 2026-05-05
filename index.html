@@ -699,45 +699,29 @@ async function runQuery() {
   try {
     const LIMIT = 5000;
 
-    // Count query against samples table (lightweight)
-    let countQuery = sbClient
-      .from('samples')
-      .select('*', { count: 'exact', head: true });
-
-    // Main data query against the wide view
+    // Main data query
     let query = sbClient
       .from('v_surface_geochemistry_wide')
       .select('sample_id,sample_type,easting,northing,rl,collected_date,data_source,source_type,client_name,tenement_number,au_ppb,ag_ppm,cu_ppm,pb_ppm,zn_ppm,as_ppm,sb_ppm,mo_ppm,bi_ppm,co_ppm,ni_ppm,fe_pct,mn_ppm,ba_ppm,sr_ppm')
       .limit(LIMIT);
 
-    if (sourceType) { query = query.eq('source_type', sourceType); }
-    if (sampleType) { query = query.eq('sample_type', sampleType); }
-    if (dateFrom)   { query = query.gte('collected_date', dateFrom); }
-    if (dateTo)     { query = query.lte('collected_date', dateTo); }
+    // Count query — same filters on same view, single column only
+    let countQuery = sbClient
+      .from('v_surface_geochemistry_wide')
+      .select('sample_id', { count: 'exact', head: true });
 
-    // If project selected, look up its UUID first then filter both queries
-    let projectUuid = null;
-    if (projectVal) {
-      const { data: projData } = await sbClient
-        .from('projects')
-        .select('id')
-        .eq('client_name', projectVal)
-        .single();
-      if (projData) projectUuid = projData.id;
-      query = query.eq('client_name', projectVal);
-    }
-
-    if (sampleType) { countQuery = countQuery.eq('sample_type', sampleType); }
-    if (dateFrom)   { countQuery = countQuery.gte('collected_date', dateFrom); }
-    if (dateTo)     { countQuery = countQuery.lte('collected_date', dateTo); }
-    if (projectUuid) { countQuery = countQuery.eq('project_id', projectUuid); }
+    if (projectVal) { query = query.eq('client_name', projectVal); countQuery = countQuery.eq('client_name', projectVal); }
+    if (sourceType) { query = query.eq('source_type', sourceType); countQuery = countQuery.eq('source_type', sourceType); }
+    if (sampleType) { query = query.eq('sample_type', sampleType); countQuery = countQuery.eq('sample_type', sampleType); }
+    if (dateFrom)   { query = query.gte('collected_date', dateFrom); countQuery = countQuery.gte('collected_date', dateFrom); }
+    if (dateTo)     { query = query.lte('collected_date', dateTo);   countQuery = countQuery.lte('collected_date', dateTo); }
 
     const [{ data, error }, { count, error: countError }] = await Promise.all([query, countQuery]);
     if (error) throw new Error(error.message);
-    if (countError) throw new Error(countError.message);
+    const totalCount = countError ? null : count;
 
     currentResults = data || [];
-    renderTable(currentResults, count);
+    renderTable(currentResults, totalCount);
   } catch(e) {
     setTableState('error', e.message);
   }
