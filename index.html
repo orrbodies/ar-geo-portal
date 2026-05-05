@@ -690,6 +690,7 @@ async function runQuery() {
   document.getElementById('export-btn').disabled = true;
   document.getElementById('stats-bar').style.display = 'none';
 
+  const projectVal = document.getElementById('filter-project').value;
   const sourceType = document.getElementById('filter-source-type').value;
   const sampleType = document.getElementById('filter-sample-type').value;
   const dateFrom   = document.getElementById('filter-date-from').value;
@@ -698,15 +699,18 @@ async function runQuery() {
   try {
     const LIMIT = 5000;
 
+    // Count query against samples table (lightweight)
     let countQuery = sbClient
-      .from('v_surface_geochemistry_wide')
+      .from('samples')
       .select('*', { count: 'exact', head: true });
 
+    // Main data query against the wide view
     let query = sbClient
       .from('v_surface_geochemistry_wide')
       .select('sample_id,sample_type,easting,northing,rl,collected_date,data_source,source_type,client_name,tenement_number,au_ppb,ag_ppm,cu_ppm,pb_ppm,zn_ppm,as_ppm,sb_ppm,mo_ppm,bi_ppm,co_ppm,ni_ppm,fe_pct,mn_ppm,ba_ppm,sr_ppm')
       .limit(LIMIT);
 
+    if (projectVal) { query = query.eq('client_name', projectVal); countQuery = countQuery.eq('project_id', projectVal); }
     if (sourceType) { query = query.eq('source_type', sourceType); countQuery = countQuery.eq('source_type', sourceType); }
     if (sampleType) { query = query.eq('sample_type', sampleType); countQuery = countQuery.eq('sample_type', sampleType); }
     if (dateFrom)   { query = query.gte('collected_date', dateFrom); countQuery = countQuery.gte('collected_date', dateFrom); }
