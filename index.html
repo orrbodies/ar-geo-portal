@@ -696,21 +696,28 @@ async function runQuery() {
   const dateTo     = document.getElementById('filter-date-to').value;
 
   try {
+    const LIMIT = 5000;
+
+    let countQuery = sbClient
+      .from('v_surface_geochemistry_wide')
+      .select('*', { count: 'exact', head: true });
+
     let query = sbClient
       .from('v_surface_geochemistry_wide')
       .select('sample_id,sample_type,easting,northing,rl,collected_date,data_source,source_type,client_name,tenement_number,au_ppb,ag_ppm,cu_ppm,pb_ppm,zn_ppm,as_ppm,sb_ppm,mo_ppm,bi_ppm,co_ppm,ni_ppm,fe_pct,mn_ppm,ba_ppm,sr_ppm')
-      .limit(5000);
+      .limit(LIMIT);
 
-    if (sourceType) query = query.eq('source_type', sourceType);
-    if (sampleType) query = query.eq('sample_type', sampleType);
-    if (dateFrom)   query = query.gte('collected_date', dateFrom);
-    if (dateTo)     query = query.lte('collected_date', dateTo);
+    if (sourceType) { query = query.eq('source_type', sourceType); countQuery = countQuery.eq('source_type', sourceType); }
+    if (sampleType) { query = query.eq('sample_type', sampleType); countQuery = countQuery.eq('sample_type', sampleType); }
+    if (dateFrom)   { query = query.gte('collected_date', dateFrom); countQuery = countQuery.gte('collected_date', dateFrom); }
+    if (dateTo)     { query = query.lte('collected_date', dateTo);   countQuery = countQuery.lte('collected_date', dateTo); }
 
-    const { data, error } = await query;
+    const [{ data, error }, { count, error: countError }] = await Promise.all([query, countQuery]);
     if (error) throw new Error(error.message);
+    if (countError) throw new Error(countError.message);
 
     currentResults = data || [];
-    renderTable(currentResults);
+    renderTable(currentResults, count);
   } catch(e) {
     setTableState('error', e.message);
   }
@@ -727,7 +734,7 @@ const ELEMENT_COLS = [
   ['mn_ppm','Mn ppm'],['ba_ppm','Ba ppm'],['sr_ppm','Sr ppm']
 ];
 
-function renderTable(rows) {
+function renderTable(rows, totalCount) {
   const area = document.getElementById('table-area');
 
   if (!rows.length) {
@@ -748,8 +755,11 @@ function renderTable(rows) {
     : '—';
   document.getElementById('stats-bar').style.display = 'grid';
 
-  document.getElementById('result-count').innerHTML =
-    `<span>${rows.length.toLocaleString()}</span> samples returned`;
+  const total = totalCount || rows.length;
+  const limitHit = rows.length < total;
+  document.getElementById('result-count').innerHTML = limitHit
+    ? `<span>${rows.length.toLocaleString()}</span> of <span>${total.toLocaleString()}</span> samples shown — refine your filters to narrow results`
+    : `<span>${rows.length.toLocaleString()}</span> samples returned`;
   document.getElementById('export-btn').disabled = false;
 
   // Detect which element columns have any data
